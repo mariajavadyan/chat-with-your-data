@@ -124,7 +124,7 @@ def handle_userinput(user_question):
                 "{{MSG}}", message.content), unsafe_allow_html=True)
 
 def main():
-    load_dotenv()  # Ensure this loads your .env file if needed
+    load_dotenv()  
     st.set_page_config(page_title="Chat with your Documents", page_icon=":books:")
     st.write(css, unsafe_allow_html=True)
 
