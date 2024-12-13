@@ -12,17 +12,32 @@ from htmlTemplates import css, bot_template, user_template
 import functools
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
+import json
 
-# User authentication setup
-names = ["User1", "User2"]
-usernames = ["user1", "user2"]
-passwords = ["pass1", "pass2"]
+# File to store user data
+USER_DATA_FILE = "users.json"
+
+# Load existing user data from the file
+def load_user_data():
+    try:
+        with open(USER_DATA_FILE, "r") as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {"usernames": [], "hashed_passwords": []}
+
+# Save user data to the file
+def save_user_data(user_data):
+    with open(USER_DATA_FILE, "w") as file:
+        json.dump(user_data, file)
+
+# Initialize user data
+user_data = load_user_data()
+usernames = user_data["usernames"]
+hashed_passwords = user_data["hashed_passwords"]
 
 # Hash passwords using SHA256
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
-
-hashed_passwords = [hash_password(password) for password in passwords]
 
 # Check if the input password matches the stored hash
 def authenticate(username, password):
@@ -30,6 +45,16 @@ def authenticate(username, password):
         user_index = usernames.index(username)
         return hashed_passwords[user_index] == hash_password(password)
     return False
+
+# Register a new user
+def register(username, password):
+    if username in usernames:
+        return False  # User already exists
+    usernames.append(username)
+    hashed_passwords.append(hash_password(password))
+    # Save the updated user data
+    save_user_data({"usernames": usernames, "hashed_passwords": hashed_passwords})
+    return True
 
 def process_chunk(chunk):
     return chunk
@@ -133,41 +158,42 @@ def main():
     if "username" not in st.session_state:
         st.session_state.username = None
 
-    # Update sidebar title based on authentication status
-    if st.session_state.authenticated:
-        st.sidebar.title(f"Account ({st.session_state.username})")
-    else:
-        st.sidebar.title("Account")
-
     if st.session_state.authenticated:
         st.sidebar.success(f"Welcome, {st.session_state.username}!")
         logout_button = st.sidebar.button("Logout")
         if logout_button:
             st.session_state.authenticated = False
             st.session_state.username = None
-            st.session_state.conversation = None
-            st.session_state.chat_history = []
             st.sidebar.warning("You have been logged out.")
     else:
-        st.sidebar.subheader("Login")
-        username = st.sidebar.text_input("Username")
-        password = st.sidebar.text_input("Password", type="password")
-        login_button = st.sidebar.button("Login")
+        tab = st.sidebar.radio("Account", ["Login", "Register"])
 
-        if login_button:
-            if authenticate(username, password):
-                st.session_state.authenticated = True
-                st.session_state.username = username
-                st.sidebar.success(f"Welcome, {username}!")
-            else:
-                st.sidebar.error("Invalid username or password")
+        if tab == "Login":
+            st.sidebar.subheader("Login")
+            username = st.sidebar.text_input("Username")
+            password = st.sidebar.text_input("Password", type="password")
+            login_button = st.sidebar.button("Login")
+
+            if login_button:
+                if authenticate(username, password):
+                    st.session_state.authenticated = True
+                    st.session_state.username = username
+                    st.sidebar.success(f"Welcome, {username}!")
+                else:
+                    st.sidebar.error("Invalid username or password")
+        elif tab == "Register":
+            st.sidebar.subheader("Register")
+            new_username = st.sidebar.text_input("New Username")
+            new_password = st.sidebar.text_input("New Password", type="password")
+            register_button = st.sidebar.button("Register")
+
+            if register_button:
+                if register(new_username, new_password):
+                    st.sidebar.success("Registration successful! You can now log in.")
+                else:
+                    st.sidebar.error("Username already exists. Please try a different one.")
 
     if st.session_state.authenticated:
-        if "conversation" not in st.session_state:
-            st.session_state.conversation = None
-        if "chat_history" not in st.session_state:
-            st.session_state.chat_history = []
-
         st.header("Chat with your Documents :books:")
         user_question = st.text_input("Ask a question about your documents:")
         if user_question:
@@ -187,22 +213,22 @@ def main():
                         st.error("No text extracted from the uploaded documents. Please check your files.")
                         return
 
-                    st.write("Raw text extracted from documents:", raw_text)
-
                     text_chunks = get_text_chunks(raw_text)
-                    if not text_chunks:
-                        st.error("No text chunks created. Check the text processing logic.")
-                        return
-
-                    st.write("Text chunks created:", text_chunks)
-
                     vectorstore = get_vectorstore(text_chunks)
-                    st.write("Vectorstore created successfully.")
-
                     st.session_state.conversation = get_conversation_chain(vectorstore)
-                    st.write("Conversation chain initialized successfully.")
     else:
         st.warning("Please log in to use the application.")
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
+
+
+
+
