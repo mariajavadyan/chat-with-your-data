@@ -112,7 +112,11 @@ def get_vectorstore(text_chunks):
     return vectorstore
 
 def get_conversation_chain(vectorstore):
-    llm = ChatOpenAI()
+    # llm = ChatOpenAI()
+    llm = ChatOpenAI(
+        model="gpt-4o",
+        temperature=0,
+    )
     memory = ConversationBufferMemory(
         memory_key='chat_history', return_messages=True)
 
@@ -140,13 +144,21 @@ def handle_userinput(user_question):
 
     st.session_state.chat_history = response['chat_history']
 
+    # for i, message in enumerate(st.session_state.chat_history):
+    #     if i % 2 == 0:
+    #         st.write(user_template.replace(
+    #             "{{MSG}}", message.content), unsafe_allow_html=True)
+    #     else:
+    #         st.write(bot_template.replace(
+    #             "{{MSG}}", message.content), unsafe_allow_html=True)
+
     for i, message in enumerate(st.session_state.chat_history):
         if i % 2 == 0:
-            st.write(user_template.replace(
-                "{{MSG}}", message.content), unsafe_allow_html=True)
+            with st.chat_message("user"):
+                st.write(message.content)
         else:
-            st.write(bot_template.replace(
-                "{{MSG}}", message.content), unsafe_allow_html=True)
+            with st.chat_message("ai"):
+                st.write(message.content)
 
 def main():
     load_dotenv()  
@@ -195,7 +207,7 @@ def main():
 
     if st.session_state.authenticated:
         st.header("Chat with your Documents :books:")
-        user_question = st.text_input("Ask a question about your documents:")
+        user_question = st.chat_input("Ask a question about your documents:")
         if user_question:
             handle_userinput(user_question)
 
